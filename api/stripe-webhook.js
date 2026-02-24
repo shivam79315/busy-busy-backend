@@ -48,7 +48,23 @@ export default async function handler(req, res) {
       paymentStatus: session.payment_status,
     });
 
-    await db.collection("carts").doc(session.metadata.userId).delete();
+    const userId = session.metadata.userId;
+
+    // Delete all cart items under users/{uid}/cart
+    const cartRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("cart");
+
+    const snapshot = await cartRef.get();
+
+    const batch = db.batch();
+
+    snapshot.forEach((doc) => {
+    batch.delete(doc.ref);
+    });
+
+    await batch.commit();
   }
 
   res.json({ received: true });
