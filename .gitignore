@@ -33,3 +33,4 @@ coverage/
 # Build output (if any)
 dist/
 build/
+.env*.local
