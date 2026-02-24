@@ -1,12 +1,15 @@
+import { buffer } from "micro";
 import Stripe from "stripe";
 import admin from "firebase-admin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Initialize Firebase Admin
 if (!admin.apps.length) {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_KEY);
+  serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+
   admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_ADMIN_KEY))
+    credential: admin.credential.cert(serviceAccount),
   });
 }
 
@@ -19,13 +22,14 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  const buf = await buffer(req);
   const sig = req.headers["stripe-signature"];
 
   let event;
 
   try {
     event = stripe.webhooks.constructEvent(
-      req.body,
+      buf,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
@@ -33,19 +37,17 @@ export default async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle successful payment
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
 
-    // Store order in Firebase
     await db.collection("orders").add({
       userId: session.metadata.userId,
       amount: session.amount_total,
-      createdAt: new Date(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
       sessionId: session.id,
+      paymentStatus: session.payment_status,
     });
 
-    // Clear user's cart
     await db.collection("carts").doc(session.metadata.userId).delete();
   }
 
