@@ -38,30 +38,34 @@ export default async function handler(req, res) {
   }
 
   if (event.type === "checkout.session.completed") {
+
     const session = event.data.object;
-
-    await db.collection("orders").add({
-      userId: session.metadata.userId,
-      amount: session.amount_total,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      sessionId: session.id,
-      paymentStatus: session.payment_status,
-    });
-
     const userId = session.metadata.userId;
 
-    // Delete all cart items under users/{uid}/cart
+    // Create order under user
+    await db
+      .collection("users")
+      .doc(userId)
+      .collection("orders")
+      .add({
+        amount: session.amount_total,
+        sessionId: session.id,
+        paymentStatus: session.payment_status,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    // Clear user cart
     const cartRef = db
-    .collection("users")
-    .doc(userId)
-    .collection("cart");
+      .collection("users")
+      .doc(userId)
+      .collection("cart");
 
     const snapshot = await cartRef.get();
 
     const batch = db.batch();
 
     snapshot.forEach((doc) => {
-    batch.delete(doc.ref);
+      batch.delete(doc.ref);
     });
 
     await batch.commit();
