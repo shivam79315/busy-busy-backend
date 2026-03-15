@@ -16,28 +16,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { items } = req.body;
+    const { items, userId } = req.body;
 
-    const line_items = [];
-
-    for (const item of items) {
-      // Fetch product from Stripe
-      const product = await stripe.products.retrieve(item.productId);
-
-      // Get default price ID
-      const priceId = product.default_price;
-
-      if (!priceId) {
-        return res.status(400).json({
-          error: `No default price found for product ${item.productId}`,
-        });
-      }
-
-      line_items.push({
-        price: priceId,
-        quantity: item.quantity,
-      });
-    }
+    const line_items = items.map((item) => ({
+      price: item.priceId,
+      quantity: item.quantity
+    }));
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -46,7 +30,7 @@ export default async function handler(req, res) {
       success_url: `${req.headers.origin}/success`,
       cancel_url: `${req.headers.origin}/cart`,
       metadata: {
-        userId: req.body.userId
+        userId
       }
     });
 
