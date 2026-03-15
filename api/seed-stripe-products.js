@@ -16,41 +16,33 @@ const db = admin.firestore();
 
 export default async function handler(req, res) {
   try {
-    const preview = req.query.preview === "true";
 
-    const snapshot = await db.collection("products").get();
+    // 1️⃣ Delete previously created Stripe products
+    const existing = await stripe.products.list({ limit: 100 });
 
-    const products = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      title: doc.data().title,
-      price: doc.data().price
-    }));
-
-    // PREVIEW MODE (no Stripe calls)
-    if (preview) {
-      return res.status(200).json({
-        preview: true,
-        count: products.length,
-        products
-      });
+    for (const product of existing.data) {
+      await stripe.products.del(product.id);
     }
 
-    // SEED MODE
+    // 2️⃣ Fetch Firestore products
+    const snapshot = await db.collection("products").get();
+
     const results = [];
 
     for (const doc of snapshot.docs) {
-      const product = doc.data();
+
+      const p = doc.data();
 
       const stripeProduct = await stripe.products.create({
-        name: product.title,
-        images: product.image ? [product.image] : [],
+        name: p.title,
+        images: p.image ? [p.image] : [],
         metadata: {
           firestoreId: doc.id
         }
       });
 
       const price = await stripe.prices.create({
-        unit_amount: Math.round(product.price * 100),
+        unit_amount: Math.round(p.price * 100),
         currency: "usd",
         product: stripeProduct.id
       });
@@ -61,21 +53,19 @@ export default async function handler(req, res) {
       });
 
       results.push({
-        firestoreProduct: doc.id,
+        firestoreId: doc.id,
         stripeProductId: stripeProduct.id,
         stripePriceId: price.id
       });
     }
 
     res.status(200).json({
-      message: "Stripe products created successfully",
+      message: "Stripe catalog reset and recreated",
       created: results.length,
       results
     });
 
   } catch (error) {
-    res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 }
