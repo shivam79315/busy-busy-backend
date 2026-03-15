@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { items, userId } = req.body;
+    const { items, userId, shippingAddress } = req.body;
 
     const line_items = items.map((item) => ({
       price: item.priceId,
@@ -31,6 +31,7 @@ export default async function handler(req, res) {
       cancel_url: `${req.headers.origin}/cart`,
       metadata: {
         userId,
+        shippingAddress,
         items: JSON.stringify(items)
       }
     });
