@@ -42,12 +42,15 @@ export default async function handler(req, res) {
     const session = event.data.object;
     const userId = session.metadata.userId;
 
+    const items = JSON.parse(session.metadata.items);
+
     // Create order under user
     await db
       .collection("users")
       .doc(userId)
       .collection("orders")
       .add({
+        items,
         amount: session.amount_total,
         sessionId: session.id,
         paymentStatus: session.payment_status,
