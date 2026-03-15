@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       mode: "payment",
       payment_method_types: ["card"],
       line_items,
-      success_url: `${req.headers.origin}/success`,
+      success_url: `${req.headers.origin}/orders`,
       cancel_url: `${req.headers.origin}/cart`,
       metadata: {
         userId,
