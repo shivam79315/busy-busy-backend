@@ -24,7 +24,6 @@ pnpm-debug.log*
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
 
 # Coverage
@@ -34,3 +33,6 @@ coverage/
 dist/
 build/
 .env*.local
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore

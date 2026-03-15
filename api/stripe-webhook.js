@@ -22,6 +22,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+
   const buf = await buffer(req);
   const sig = req.headers["stripe-signature"];
 
@@ -40,12 +41,14 @@ export default async function handler(req, res) {
   if (event.type === "checkout.session.completed") {
 
     const session = event.data.object;
-    const userId = session.metadata.userId;
 
+    const userId = session.metadata.userId;
     const items = JSON.parse(session.metadata.items);
     const shippingAddress = session.metadata.shippingAddress;
 
-    // Create order under user
+    // ---------------------------
+    // CREATE ORDER
+    // ---------------------------
     await db
       .collection("users")
       .doc(userId)
@@ -59,7 +62,9 @@ export default async function handler(req, res) {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-    // Clear user cart
+    // ---------------------------
+    // CLEAR USER CART
+    // ---------------------------
     const cartRef = db
       .collection("users")
       .doc(userId)
@@ -74,6 +79,40 @@ export default async function handler(req, res) {
     });
 
     await batch.commit();
+
+    // ---------------------------
+    // SEND EMAIL
+    // ---------------------------
+    const emailPayload = {
+      email: session.customer_details.email,
+      customerName: session.customer_details.name || "Customer",
+      orderId: session.id,
+      amount: session.amount_total / 100,
+      shippingAddress,
+      items: items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price
+      }))
+    };
+
+    try {
+
+      await fetch(
+        "https://busy-busy-auto.onrender.com/api/email/order-confirmation",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(emailPayload)
+        }
+      );
+
+    } catch (err) {
+      console.error("Email sending failed:", err);
+    }
+
   }
 
   res.json({ received: true });
