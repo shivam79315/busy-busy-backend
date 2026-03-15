@@ -43,6 +43,7 @@ export default async function handler(req, res) {
     const userId = session.metadata.userId;
 
     const items = JSON.parse(session.metadata.items);
+    const shippingAddress = session.metadata.shippingAddress;
 
     // Create order under user
     await db
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
       .collection("orders")
       .add({
         items,
+        shippingAddress,
         amount: session.amount_total,
         sessionId: session.id,
         paymentStatus: session.payment_status,
